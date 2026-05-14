@@ -1,102 +1,158 @@
-# XDP eBPF Packet Filter (Go + C)
+# eBPF XDP TCP Packet Dropper
 
-## 🚀 Overview
+## Overview
 
-This project demonstrates an **eBPF-based XDP packet filtering program** written in C with a Go userspace loader using the Cilium eBPF library.
+This project demonstrates a high-performance TCP packet filtering system using eBPF and XDP (eXpress Data Path).
 
-The program attaches an XDP (eXpress Data Path) hook to a network interface and drops TCP packets targeting a configurable port (default: 4040).
+The application attaches an XDP program to a network interface and drops TCP packets targeting a configurable port (default: `4040`) directly at the kernel networking layer.
 
----
-
-## ⚙️ Features
-
-- ✔ XDP-based kernel-level packet filtering
-- ✔ Drops TCP packets on a configurable port
-- ✔ Dynamic configuration using BPF maps
-- ✔ Userspace control using Go (Cilium eBPF library)
-- ✔ Lightweight and high-performance packet processing
+The userspace controller is implemented in Go using the Cilium eBPF library, while the XDP program is written in C.
 
 ---
 
-## 🧠 Architecture
+# Architecture
 
-
-Go Userspace Program
-|
-| (updates BPF map)
-↓
-BPF Map (port configuration)
-↓
-eBPF XDP Program (kernel space)
-↓
-Network Interface (eth0)
-↓
-Packets filtered at kernel level
-
-
----
-
-## 📌 How it Works
-
-1. Go program loads compiled eBPF object (`xdp.o`)
-2. It updates a BPF map with blocked port (e.g., 4040)
-3. XDP program reads this value from kernel space
-4. Incoming TCP packets are inspected
-5. If destination port matches → packet is dropped
+```text id="a1"
+Go Userspace Loader
+        │
+        ▼
+Loads eBPF Program (xdp.o)
+        │
+        ▼
+Updates BPF Map (blocked port)
+        │
+        ▼
+XDP Hook attached to eth0
+        │
+        ▼
+Kernel-level packet inspection
+        │
+        ▼
+Matching TCP packets dropped
+```
 
 ---
 
-## 📦 Requirements
+# Features
 
-- Linux (WSL2 / Ubuntu)
-- clang + llvm
-- Go 1.23+
-- libbpf-dev
-- kernel with eBPF support
+* XDP-based packet filtering
+* Kernel-level TCP packet dropping
+* Configurable blocked port using BPF maps
+* Go userspace control plane
+* Lightweight and high-performance architecture
+* Early packet processing at driver level
 
-Install dependencies:
+---
 
-```bash
+# Tech Stack
+
+* Go
+* eBPF
+* XDP
+* Cilium eBPF library
+* C
+* Linux Networking
+* clang/LLVM
+
+---
+
+# Project Structure
+
+```text id="a2"
+ebpf-dropper/
+│
+├── main.go      # Go userspace loader
+├── xdp.c        # XDP/eBPF packet filter
+├── xdp.o        # Compiled eBPF object
+├── go.mod
+├── go.sum
+└── README.md
+```
+
+---
+
+# Build Instructions
+
+## Install Dependencies
+
+```bash id="a3"
 sudo apt update
 sudo apt install -y clang llvm libbpf-dev gcc make
-🛠 Build Instructions
-1. Compile eBPF program
+```
+
+## Compile eBPF Program
+
+```bash id="a4"
 clang -O2 -g -target bpf -c xdp.c -o xdp.o
-2. Run Go loader
+```
+
+## Run Userspace Loader
+
+```bash id="a5"
 sudo go run main.go
-🧪 Testing
+```
 
-Start a simple HTTP server:
+Expected Output:
 
-python3 -m http.server 4040 --bind 0.0.0.0
+```text id="a6"
+XDP attached: TCP port filtering active
+```
 
-Then test:
+---
 
-curl http://<IP>:4040
+# Verification
 
-If working on native Linux:
+Check whether XDP is attached:
 
-Traffic to port 4040 will be dropped
+```bash id="a7"
+ip link show eth0
+```
 
-⚠️ Note: On WSL2, XDP packet dropping may not fully behave as expected due to virtualized networking limitations.
+Expected:
 
-⚠️ Known Limitation (WSL2)
+```text id="a8"
+prog/xdp
+```
 
-WSL2 does not fully support real XDP packet enforcement in all cases.
+---
 
-So:
+# Testing
 
-Program attaches successfully ✔
-Map updates work ✔
-Packet drop behavior may not be visible ❌
+Start a test HTTP server:
 
-For full testing, use:
+```bash id="a9"
+python3 -m http.server 4040
+```
 
-Native Linux VM
-or Cloud Ubuntu instance
-🧩 Key Learning
-eBPF XDP programming model
-Kernel vs userspace interaction
-BPF maps for dynamic configuration
-Network packet processing at kernel level
-Go-based eBPF control plane
+Send traffic:
+
+```bash id="a10"
+curl http://localhost:4040
+```
+
+---
+
+# WSL2 Limitation
+
+This project was developed inside WSL2 Ubuntu.
+
+While XDP attachment succeeds correctly, WSL2 virtualized networking may not fully enforce real packet dropping behavior.
+
+For complete validation, testing on:
+
+* Native Linux
+* Linux VM
+* Cloud Ubuntu instance
+
+is recommended.
+
+---
+
+# Key Learnings
+
+* eBPF/XDP programming model
+* Kernel-space packet processing
+* Userspace-to-kernel interaction
+* BPF maps
+* Linux networking internals
+* High-performance packet filtering
